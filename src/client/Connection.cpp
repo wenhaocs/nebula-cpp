@@ -9,6 +9,7 @@
 #include <folly/io/async/AsyncSSLSocket.h>
 #include <folly/io/async/AsyncSocket.h>
 #include <folly/io/async/ScopedEventBaseThread.h>
+#include <thrift/lib/cpp2/async/HTTPClientChannel.h>
 #include <thrift/lib/cpp2/async/HeaderClientChannel.h>
 
 #include <memory>
@@ -82,7 +83,7 @@ bool Connection::open(const std::string &address,
     return false;
   }
   bool complete{false};
-  std::shared_ptr<folly::AsyncSocket> socket;
+  folly::AsyncTransport::UniquePtr socket;
   folly::SocketAddress socketAddr;
   try {
     socketAddr = folly::SocketAddress(address, port, true);
@@ -94,12 +95,13 @@ bool Connection::open(const std::string &address,
       [this, &complete, &socket, timeout, &socketAddr, enableSSL, &CAPath]() {
         try {
           if (enableSSL) {
-            socket = folly::AsyncSSLSocket::newSocket(nebula::createSSLContext(CAPath),
-                                                      clientLoopThread_->getEventBase());
-            socket->connect(nullptr, std::move(socketAddr), timeout);
+            auto sock = folly::AsyncSSLSocket::UniquePtr(new folly::AsyncSSLSocket(
+                nebula::createSSLContext(CAPath), clientLoopThread_->getEventBase()));
+            sock->connect(nullptr, std::move(socketAddr), timeout);
+            socket = folly::AsyncTransport::UniquePtr(sock.release());
           } else {
-            socket = folly::AsyncSocket::newSocket(
-                clientLoopThread_->getEventBase(), std::move(socketAddr), timeout);
+            socket = folly::AsyncTransport::UniquePtr(new folly::AsyncSocket(
+                clientLoopThread_->getEventBase(), std::move(socketAddr), timeout));
           }
           complete = true;
         } catch (const std::exception &e) {
@@ -113,10 +115,12 @@ bool Connection::open(const std::string &address,
   if (!socket->good()) {
     return false;
   }
+
   // TODO workaround for issue #72
   // socket->setErrMessageCB(&NebulaConnectionErrMessageCallback::instance());
-  auto channel = apache::thrift::HeaderClientChannel::newChannel(socket);
-  channel->setTimeout(timeout);
+  // auto channel = apache::thrift::HeaderClientChannel::newChannel(socket);
+  auto channel = apache::thrift::HTTPClientChannel::newHTTP2Channel(std::move(socket));
+  // channel->setTimeout(timeout);
   client_ = new graph::cpp2::GraphServiceAsyncClient(std::move(channel));
   auto resp = verifyClientVersion(VerifyClientVersionReq{});
   if (resp.errorCode != ErrorCode::SUCCEEDED) {

@@ -14,13 +14,13 @@
 
 // Require a nebula server could access
 
-#define kServerHost "graphd"
+#define kServerHost "127.0.0.1"
 
 class AddressTest : public ClientTest {};
 
 TEST_F(AddressTest, One) {
   nebula::ConnectionPool pool;
-  pool.init({kServerHost ":9669"}, nebula::Config{});
+  pool.init({kServerHost ":9798"}, nebula::Config{});
   EXPECT_EQ(pool.size(), 10);
 }
 

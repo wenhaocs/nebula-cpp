@@ -125,6 +125,8 @@ set(THRIFT_LIBRARIES
     thrift-core
     rpcmetadata
     thriftmetadata
+    proxygenhttpserver
+    proxygen
     wangle
     fizz
     sodium

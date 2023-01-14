@@ -13,7 +13,7 @@
 
 int main(int argc, char* argv[]) {
     nebula::init(&argc, &argv);
-    auto address = "127.0.0.1:9669";
+    auto address = "127.0.0.1:9798";
     if (argc == 2) {
         address = argv[1];
     }
